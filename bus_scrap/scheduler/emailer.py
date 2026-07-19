@@ -118,16 +118,33 @@ def render_email_text(
 
 class EmailSender:
     def __init__(self) -> None:
-        self.host = os.getenv("SMTP_HOST", "")
-        self.port = int(os.getenv("SMTP_PORT", "587"))
-        self.user = os.getenv("SMTP_USER", "")
-        self.password = os.getenv("SMTP_PASSWORD", "")
-        self.sender = os.getenv("SMTP_FROM", self.user or "bus-scrap@localhost")
-        self.use_tls = os.getenv("SMTP_TLS", "true").lower() in {"1", "true", "yes"}
-        self.dry_run = os.getenv("SMTP_DRY_RUN", "false").lower() in {"1", "true", "yes"}
+        self.host = _env("SMTP_HOST")
+        self.port = int(_env("SMTP_PORT", "587") or "587")
+        self.user = _env("SMTP_USER")
+        self.password = _env("SMTP_PASSWORD")
+        self.sender = _env("SMTP_FROM") or self.user or "bus-scrap@localhost"
+        self.use_tls = _env("SMTP_TLS", "true").lower() in {"1", "true", "yes"}
+        self.dry_run = _env("SMTP_DRY_RUN", "false").lower() in {"1", "true", "yes"}
 
     def configured(self) -> bool:
         return bool(self.host and self.sender) or self.dry_run
+
+    def _login(self, server: smtplib.SMTP) -> None:
+        if not self.user or not self.password:
+            raise RuntimeError(
+                "SMTP_USER/SMTP_PASSWORD ausentes. No Brevo use o login SMTP "
+                "e a SMTP Key (não a senha da conta)."
+            )
+        try:
+            server.login(self.user, self.password)
+        except smtplib.SMTPAuthenticationError as exc:
+            raise RuntimeError(
+                "Falha de autenticação SMTP (535). Verifique SMTP_USER/SMTP_PASSWORD; "
+                "se o .env veio do Windows, remova CRLF (`dos2unix .env`); "
+                "no Brevo regenere a SMTP Key e confirme o login "
+                f"(user={self.user!r}, host={self.host!r}, port={self.port}). "
+                f"Detalhe: {exc}"
+            ) from exc
 
     def send(self, to_email: str, subject: str, html_body: str, text_body: str) -> str:
         if self.dry_run:
@@ -153,13 +170,19 @@ class EmailSender:
             context = ssl.create_default_context()
             with smtplib.SMTP(self.host, self.port, timeout=30) as server:
                 server.starttls(context=context)
-                if self.user and self.password:
-                    server.login(self.user, self.password)
+                self._login(server)
                 server.sendmail(self.sender, [to_email], message.as_string())
         else:
             with smtplib.SMTP(self.host, self.port, timeout=30) as server:
-                if self.user and self.password:
-                    server.login(self.user, self.password)
+                self._login(server)
                 server.sendmail(self.sender, [to_email], message.as_string())
 
         return f"E-mail enviado para {to_email}"
+
+
+def _env(name: str, default: str = "") -> str:
+    """Lê env removendo espaços e \\r (comum em .env criado no Windows)."""
+    value = os.getenv(name, default)
+    if value is None:
+        return default
+    return value.strip().strip('"').strip("'")

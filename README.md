@@ -13,11 +13,11 @@ Monitoramento de passagens de ônibus no Brasil. Consulta FlixBus, ClickBus e Qu
 
 ## Providers
 
-| Site | Observação |
-|------|------------|
-| **QueroPassagem** | Em geral o mais completo para rotas regionais |
-| **ClickBus** | Usa Playwright (Chromium) por causa de anti-bot |
-| **FlixBus** | Depende de cobertura da rota; algumas cidades podem não retornar ofertas |
+| Site              | Observação                                                               |
+| ----------------- | ------------------------------------------------------------------------ |
+| **QueroPassagem** | Em geral o mais completo para rotas regionais                            |
+| **ClickBus**      | Usa Playwright (Chromium) por causa de anti-bot                          |
+| **FlixBus**       | Depende de cobertura da rota; algumas cidades podem não retornar ofertas |
 
 Use `all` para consultar os três.
 
@@ -57,17 +57,17 @@ cp .env.example .env
 
 ### Variáveis principais
 
-| Variável | Descrição |
-|----------|-----------|
-| `NOTIFY_EMAIL` | Destinatário padrão (também via CLI / comando `set email`) |
-| `ORIGIN` / `DESTINATION` / `TRAVEL_DATE` | Rota e data da ida (`DD/MM/YYYY`) |
-| `SEARCH_SITE` | `all`, `flixbus`, `clickbus` ou `queropassagem` |
-| `SEARCH_LIMIT` | Máximo de passagens por site |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Envio de e-mail |
-| `SMTP_TLS` | `true` / `false` |
-| `SMTP_DRY_RUN` | `true` = não envia; salva HTML em `data/last_email.html` |
-| `BUS_SCRAP_DATA_DIR` | Pasta de dados (`data` localmente) |
-| `TZ` | Fuso horário (`America/Sao_Paulo`) |
+| Variável                                                            | Descrição                                                  |
+| ------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `NOTIFY_EMAIL`                                                      | Destinatário padrão (também via CLI / comando `set email`) |
+| `ORIGIN` / `DESTINATION` / `TRAVEL_DATE`                            | Rota e data da ida (`DD/MM/YYYY`)                          |
+| `SEARCH_SITE`                                                       | `all`, `flixbus`, `clickbus` ou `queropassagem`            |
+| `SEARCH_LIMIT`                                                      | Máximo de passagens por site                               |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | Envio de e-mail                                            |
+| `SMTP_TLS`                                                          | `true` / `false`                                           |
+| `SMTP_DRY_RUN`                                                      | `true` = não envia; salva HTML em `data/last_email.html`   |
+| `BUS_SCRAP_DATA_DIR`                                                | Pasta de dados (`data` localmente)                         |
+| `TZ`                                                                | Fuso horário (`America/Sao_Paulo`)                         |
 
 > **Importante:** o `main.py` não carrega o `.env` automaticamente. No Docker Compose as variáveis são injetadas. Em execução local, exporte-as no shell ou use um carregador de `.env`.
 
@@ -109,14 +109,14 @@ Sem `--run-now`, o serviço fica escutando comandos e dispara o cron no horário
 
 #### Argumentos de inicialização
 
-| Argumento | Descrição |
-|-----------|-----------|
-| `--email` | Destinatário |
-| `--origem` / `--destino` / `--data` | Rota e data da ida |
-| `--site` | Provider(s) |
-| `--limit` | Limite por site |
-| `--cron-hour` / `--cron-minute` | Horário do envio diário |
-| `--run-now` | Executa uma busca/envio imediatamente |
+| Argumento                           | Descrição                             |
+| ----------------------------------- | ------------------------------------- |
+| `--email`                           | Destinatário                          |
+| `--origem` / `--destino` / `--data` | Rota e data da ida                    |
+| `--site`                            | Provider(s)                           |
+| `--limit`                           | Limite por site                       |
+| `--cron-hour` / `--cron-minute`     | Horário do envio diário               |
+| `--run-now`                         | Executa uma busca/envio imediatamente |
 
 ### Comandos em runtime
 
@@ -148,6 +148,8 @@ A configuração fica salva em `data/config.json`.
 docker compose up -d --build
 ```
 
+O entrypoint ajusta automaticamente as permissões de `./data` (volume montado) e em seguida roda a aplicação como usuário não-root (`appsvc`).
+
 3. Para digitar comandos no container:
 
 ```bash
@@ -157,6 +159,20 @@ docker attach bus-scrap
 (Use `Ctrl+P Ctrl+Q` para sair do attach sem parar o container.)
 
 Logs e artefatos ficam em `./data` (volume montado).
+
+### Erro `Permission denied: '/app/data/config.json'`
+
+Isso acontece quando a pasta `./data` no host não é gravável pelo usuário do container. Com a imagem atual (entrypoint + `gosu`), um rebuild resolve:
+
+```bash
+docker compose up -d --build --force-recreate
+```
+
+Workaround manual (se ainda necessário):
+
+```bash
+sudo chown -R 10001:10001 ./data
+```
 
 ## Estrutura do projeto
 
