@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      # Reaproveita camadas da imagem anterior (BuildKit)
+      cache_from:
+        - bus-scrap:latest
+      args:
+        BUILDKIT_INLINE_CACHE: "1"
+    image: bus-scrap:latest
     container_name: bus-scrap
     restart: unless-stopped
     env_file:

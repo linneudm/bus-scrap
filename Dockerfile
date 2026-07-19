@@ -1,49 +1,75 @@
-# syntax=docker/dockerfile:1
+# syntax=docker/dockerfile:1.7
 
-FROM python:3.12-slim-bookworm AS base
+# -----------------------------------------------------------------------------
+# Stage 1: dependências Python + Chromium (camadas estáveis / cacheáveis)
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim-bookworm AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /build
+
+RUN python -m venv /opt/venv
+
+COPY requirements.txt .
+
+# Cache de pip entre builds (BuildKit)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install -r requirements.txt
+
+# Browser em camada própria: só invalida se requirements/playwright mudarem
+RUN playwright install chromium \
+    && find /ms-playwright -type f \( -name '*.zip' -o -name '*.md' \) -delete \
+    && find /opt/venv -type d -name '__pycache__' -prune -exec rm -rf {} + \
+    && find /opt/venv -type f -name '*.pyc' -delete \
+    && rm -rf /tmp/* /var/tmp/*
+
+# -----------------------------------------------------------------------------
+# Stage 2: runtime enxuto
+# -----------------------------------------------------------------------------
+FROM python:3.12-slim-bookworm AS runtime
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
     BUS_SCRAP_DATA_DIR=/app/data \
-    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    PLAYWRIGHT_BROWSERS_PATH=/ms-playwright \
+    VIRTUAL_ENV=/opt/venv \
+    PATH="/opt/venv/bin:$PATH"
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      ca-certificates \
-      curl \
-      gosu \
-      fonts-liberation \
-      libasound2 \
-      libatk-bridge2.0-0 \
-      libatk1.0-0 \
-      libcups2 \
-      libdbus-1-3 \
-      libdrm2 \
-      libgbm1 \
-      libgtk-3-0 \
-      libnspr4 \
-      libnss3 \
-      libx11-xcb1 \
-      libxcomposite1 \
-      libxdamage1 \
-      libxrandr2 \
-      xdg-utils \
-    && rm -rf /var/lib/apt/lists/*
+# Reaproveita venv + browsers do builder (sem rebaixar)
+COPY --from=builder /opt/venv /opt/venv
+COPY --from=builder /ms-playwright /ms-playwright
 
-COPY requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt \
-    && playwright install chromium
+# gosu + libs do Chromium; cache apt entre builds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean \
+    && echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' \
+         > /etc/apt/apt.conf.d/keep-cache \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends gosu \
+    && playwright install-deps chromium \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Código da app por último → mudanças de código não refazem pip/browser
 COPY bus_scrap ./bus_scrap
 COPY main.py .
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN mkdir -p /app/data \
-    && useradd --create-home --uid 10001 appsvc \
+    && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appsvc \
     && chown -R appsvc:appsvc /app /ms-playwright \
-    && chmod +x /docker-entrypoint.sh
+    && chmod +x /docker-entrypoint.sh \
+    && find /app -type d -name '__pycache__' -prune -exec rm -rf {} + \
+    && find /app -type f -name '*.pyc' -delete
 
 # entrypoint inicia como root só para ajustar permissões do volume,
 # depois executa a app como appsvc (não-root).

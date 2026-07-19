@@ -142,11 +142,15 @@ A configuração fica salva em `data/config.json`.
 ## Docker (produção)
 
 1. Configure o `.env` (SMTP real, `SMTP_DRY_RUN=false`).
-2. Suba o serviço:
+2. Suba o serviço (BuildKit ativo para cache de pip/apt/camadas):
 
 ```bash
+export DOCKER_BUILDKIT=1
+export COMPOSE_DOCKER_CLI_BUILD=1
 docker compose up -d --build
 ```
+
+Rebuilds seguintes reaproveitam cache de `pip`, `apt` e da camada do Chromium; só o código da app é recopiado quando muda.
 
 O entrypoint ajusta automaticamente as permissões de `./data` (volume montado) e em seguida roda a aplicação como usuário não-root (`appsvc`).
 

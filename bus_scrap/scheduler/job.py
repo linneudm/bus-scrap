@@ -38,6 +38,10 @@ class DailySearchJob:
             )
             return False
 
+        password_warning = self.emailer.password_warning()
+        if password_warning:
+            self.logger.warn(password_warning)
+
         results = []
         errors: list[str] = []
         try:

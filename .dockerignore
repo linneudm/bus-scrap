@@ -1,18 +1,44 @@
+# Git / IDE
 .git
 .gitignore
+.gitattributes
+.cursor
+.vscode
+.idea
+
+# Secrets e runtime local
 .env
 .env.*
 !.env.example
 .venv
 venv
+ENV
 data
 **/__pycache__
-*.pyc
+*.py[cod]
+*$py.class
+*.egg-info
+.eggs
+dist
+build
+
+# Docs e artefatos que não entram na imagem
 *.md
+LICENSE*
+config.example.json
 _probe*
+_smtp*
 agent-tools
-.cursor
+agent-transcripts
+*.log
 *.pem
 *.key
 *credentials*.json
 secrets/
+Thumbs.db
+.DS_Store
+
+# Testes (se existirem)
+tests
+**/test_*.py
+**/*_test.py

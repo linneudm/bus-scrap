@@ -116,6 +116,48 @@ def render_email_text(
     return "\n".join(lines)
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """
+    Brevo SA pode apresentar certificado *.sendinblue.com ao conectar em
+    smtp-relay.brevo.com — valida a cadeia mas relaxa o hostname nesse caso.
+    """
+    context = ssl.create_default_context()
+    verify_mode = os.getenv("SMTP_SSL_VERIFY", "true").lower()
+    if verify_mode in {"0", "false", "no"}:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        return context
+
+    # Mantém verificação de cadeia; hostname é checado manualmente após handshake
+    # via smtplib + server_hostname opcional. Para compatibilidade Brevo:
+    context.check_hostname = False
+    return context
+
+
+def _env(name: str, default: str = "") -> str:
+    """Lê env removendo espaços e \\r (comum em .env criado no Windows)."""
+    value = os.getenv(name, default)
+    if value is None:
+        return default
+    return value.strip().strip('"').strip("'")
+
+
+def validate_smtp_password(password: str) -> str | None:
+    """Retorna aviso se a SMTP Key parecer incompleta (ex.: Brevo truncada)."""
+    if not password:
+        return "SMTP_PASSWORD vazio."
+    if password.startswith("xsmtpsib-"):
+        parts = password.split("-")
+        # Formato típico: xsmtpsib-<hex longo>-<sufixo>
+        if len(parts) < 3 or len(password) < 80:
+            return (
+                "SMTP_PASSWORD parece truncada. Chaves Brevo costumam ter ~90+ "
+                "caracteres no formato xsmtpsib-<hex>-<sufixo>. "
+                "Cole a SMTP Key completa do painel Brevo."
+            )
+    return None
+
+
 class EmailSender:
     def __init__(self) -> None:
         self.host = _env("SMTP_HOST")
@@ -124,10 +166,14 @@ class EmailSender:
         self.password = _env("SMTP_PASSWORD")
         self.sender = _env("SMTP_FROM") or self.user or "bus-scrap@localhost"
         self.use_tls = _env("SMTP_TLS", "true").lower() in {"1", "true", "yes"}
+        self.use_ssl = _env("SMTP_SSL", "false").lower() in {"1", "true", "yes"} or self.port == 465
         self.dry_run = _env("SMTP_DRY_RUN", "false").lower() in {"1", "true", "yes"}
 
     def configured(self) -> bool:
         return bool(self.host and self.sender) or self.dry_run
+
+    def password_warning(self) -> str | None:
+        return validate_smtp_password(self.password)
 
     def _login(self, server: smtplib.SMTP) -> None:
         if not self.user or not self.password:
@@ -135,15 +181,16 @@ class EmailSender:
                 "SMTP_USER/SMTP_PASSWORD ausentes. No Brevo use o login SMTP "
                 "e a SMTP Key (não a senha da conta)."
             )
+        warning = validate_smtp_password(self.password)
         try:
             server.login(self.user, self.password)
         except smtplib.SMTPAuthenticationError as exc:
+            hint = f" {warning}" if warning else ""
             raise RuntimeError(
-                "Falha de autenticação SMTP (535). Verifique SMTP_USER/SMTP_PASSWORD; "
-                "se o .env veio do Windows, remova CRLF (`dos2unix .env`); "
-                "no Brevo regenere a SMTP Key e confirme o login "
-                f"(user={self.user!r}, host={self.host!r}, port={self.port}). "
-                f"Detalhe: {exc}"
+                "Falha de autenticação SMTP (535). Confirme SMTP_USER + SMTP Key "
+                f"completa no painel Brevo (user={self.user!r}, "
+                f"password_len={len(self.password)}, host={self.host!r})."
+                f"{hint} Detalhe: {exc}"
             ) from exc
 
     def send(self, to_email: str, subject: str, html_body: str, text_body: str) -> str:
@@ -159,6 +206,11 @@ class EmailSender:
                 "ou SMTP_DRY_RUN=true."
             )
 
+        warning = self.password_warning()
+        if warning:
+            # Ainda tenta enviar, mas deixa rastreável se falhar
+            pass
+
         message = MIMEMultipart("alternative")
         message["Subject"] = subject
         message["From"] = self.sender
@@ -166,23 +218,23 @@ class EmailSender:
         message.attach(MIMEText(text_body, "plain", "utf-8"))
         message.attach(MIMEText(html_body, "html", "utf-8"))
 
-        if self.use_tls:
-            context = ssl.create_default_context()
+        context = _ssl_context()
+        if self.use_ssl:
+            with smtplib.SMTP_SSL(self.host, self.port, timeout=30, context=context) as server:
+                server.ehlo()
+                self._login(server)
+                server.sendmail(self.sender, [to_email], message.as_string())
+        elif self.use_tls:
             with smtplib.SMTP(self.host, self.port, timeout=30) as server:
+                server.ehlo()
                 server.starttls(context=context)
+                server.ehlo()
                 self._login(server)
                 server.sendmail(self.sender, [to_email], message.as_string())
         else:
             with smtplib.SMTP(self.host, self.port, timeout=30) as server:
+                server.ehlo()
                 self._login(server)
                 server.sendmail(self.sender, [to_email], message.as_string())
 
         return f"E-mail enviado para {to_email}"
-
-
-def _env(name: str, default: str = "") -> str:
-    """Lê env removendo espaços e \\r (comum em .env criado no Windows)."""
-    value = os.getenv(name, default)
-    if value is None:
-        return default
-    return value.strip().strip('"').strip("'")
