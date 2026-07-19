@@ -1,0 +1,38 @@
+# Secrets / local env
+.env
+.env.*
+!.env.example
+
+# Runtime data (email, logs, HTML gerado)
+data/*
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+ENV/
+
+# Logs e dumps
+*.log
+*.tmp
+*.bak
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Credenciais e chaves
+*.pem
+*.key
+*credentials*.json
+secrets/

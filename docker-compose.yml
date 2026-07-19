@@ -1,0 +1,24 @@
+services:
+  bus-scrap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bus-scrap
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      BUS_SCRAP_DATA_DIR: /app/data
+      TZ: America/Sao_Paulo
+    volumes:
+      - ./data:/app/data
+    stdin_open: true
+    tty: true
+    command:
+      - --run-now
+      - --email=${NOTIFY_EMAIL:-seu-email@exemplo.com}
+      - --origem=${ORIGIN:-Fortaleza}
+      - --destino=${DESTINATION:-Recife}
+      - --data=${TRAVEL_DATE:-15/09/2026}
+      - --site=${SEARCH_SITE:-all}
+      - --limit=${SEARCH_LIMIT:-15}

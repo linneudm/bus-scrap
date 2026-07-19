@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Passagens de onibus</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f3f7f4;
+      color: #14212b;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      line-height: 1.45;
+    }
+    .wrap {
+      width: 100%;
+      background: #f3f7f4;
+      padding: 24px 12px;
+    }
+    .shell {
+      max-width: 680px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #d7e0e6;
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .hero {
+      background: linear-gradient(135deg, #0f7a4c 0%, #146c8b 100%);
+      color: #ffffff;
+      padding: 28px 24px 24px;
+    }
+    .hero .brand {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+      margin: 0 0 8px;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: 26px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+    .hero p {
+      margin: 10px 0 0;
+      font-size: 15px;
+      opacity: 0.95;
+    }
+    .meta {
+      padding: 16px 24px;
+      border-bottom: 1px solid #d7e0e6;
+      background: #fbfcfb;
+    }
+    .chip {
+      display: inline-block;
+      margin: 0 8px 8px 0;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #e7f6ee;
+      color: #0f7a4c;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .section {
+      padding: 8px 24px 20px;
+    }
+    .site-title {
+      margin: 18px 0 10px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #14212b;
+      border-left: 3px solid #0f7a4c;
+      padding-left: 10px;
+    }
+    .warn {
+      margin: 0 0 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fff7e8;
+      color: #9a5b00;
+      font-size: 13px;
+    }
+    .empty {
+      margin: 0;
+      padding: 14px;
+      border: 1px dashed #d7e0e6;
+      border-radius: 12px;
+      color: #5b6b76;
+      font-size: 14px;
+    }
+    table.trips {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 8px;
+    }
+    table.trips th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #5b6b76;
+      padding: 8px 6px;
+      border-bottom: 1px solid #d7e0e6;
+    }
+    table.trips td {
+      padding: 12px 6px;
+      border-bottom: 1px solid #d7e0e6;
+      font-size: 13px;
+      vertical-align: top;
+    }
+    .price {
+      font-weight: 700;
+      color: #0b5f3b;
+      white-space: nowrap;
+    }
+    .company {
+      font-weight: 600;
+    }
+    .muted {
+      color: #5b6b76;
+      font-size: 12px;
+    }
+    .footer {
+      padding: 18px 24px 24px;
+      border-top: 1px solid #d7e0e6;
+      color: #5b6b76;
+      font-size: 12px;
+    }
+    a {
+      color: #0f7a4c;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="shell">
+      <div class="hero">
+        <p class="brand">Bus Scrap</p>
+        <h1>$route_title</h1>
+        <p>Resumo diário das passagens de ida encontrados em $generated_at.</p>
+      </div>
+
+      <div class="meta">
+        <span class="chip">Origem: $origem</span>
+        <span class="chip">Destino: $destino</span>
+        <span class="chip">Ida: $data</span>
+        <span class="chip">$total_offers opção(ões)</span>
+      </div>
+
+      <div class="section">
+        $sites_html
+      </div>
+
+      <div class="footer">
+        E-mail automático do monitoramento de passagens Bus Scrap.
+        Altere origem, destino, data ou e-mail pelos comandos do serviço.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

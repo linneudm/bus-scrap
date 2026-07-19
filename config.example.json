@@ -1,0 +1,11 @@
+{
+  "email": "seu-email@exemplo.com",
+  "origem": "Fortaleza",
+  "destino": "Recife",
+  "data": "15/09/2026",
+  "site": "all",
+  "limit": 15,
+  "cron_hour": 10,
+  "cron_minute": 0,
+  "timezone": "America/Sao_Paulo"
+}
