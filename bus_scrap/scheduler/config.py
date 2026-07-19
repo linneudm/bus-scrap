@@ -28,6 +28,10 @@ def default_config_path() -> Path:
     return Path(os.getenv("BUS_SCRAP_DATA_DIR", "data")) / "config.json"
 
 
+def default_stop_path() -> Path:
+    return Path(os.getenv("BUS_SCRAP_DATA_DIR", "data")) / "stop.request"
+
+
 @dataclass
 class AppConfig:
     email: str
@@ -63,19 +67,37 @@ class AppConfig:
 
 
 class ConfigStore:
-    """Config persistente e thread-safe, editável em runtime."""
+    """Config persistente, thread-safe e compartilhada entre processos (attach/exec)."""
 
     def __init__(self, path: Path | None = None) -> None:
         self.path = path or default_config_path()
         self._lock = threading.RLock()
         self._config = AppConfig.from_dict(DEFAULT_CONFIG)
+        self._mtime_ns: int | None = None
         self.load()
+
+    def _read_mtime(self) -> int | None:
+        if not self.path.exists():
+            return None
+        return self.path.stat().st_mtime_ns
+
+    def _reload_if_stale(self) -> None:
+        """Recarrega do disco se outro processo (docker exec) alterou o arquivo."""
+        mtime = self._read_mtime()
+        if mtime is None:
+            return
+        if self._mtime_ns is not None and mtime == self._mtime_ns:
+            return
+        raw = json.loads(self.path.read_text(encoding="utf-8"))
+        self._config = AppConfig.from_dict(raw)
+        self._mtime_ns = mtime
 
     def load(self) -> AppConfig:
         with self._lock:
             if self.path.exists():
                 raw = json.loads(self.path.read_text(encoding="utf-8"))
                 self._config = AppConfig.from_dict(raw)
+                self._mtime_ns = self._read_mtime()
             else:
                 self.save()
             return deepcopy(self._config)
@@ -83,17 +105,22 @@ class ConfigStore:
     def save(self) -> None:
         with self._lock:
             self.path.parent.mkdir(parents=True, exist_ok=True)
-            self.path.write_text(
-                json.dumps(self._config.to_dict(), ensure_ascii=False, indent=2) + "\n",
-                encoding="utf-8",
+            payload = (
+                json.dumps(self._config.to_dict(), ensure_ascii=False, indent=2) + "\n"
             )
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text(payload, encoding="utf-8")
+            tmp.replace(self.path)
+            self._mtime_ns = self._read_mtime()
 
     def get(self) -> AppConfig:
         with self._lock:
+            self._reload_if_stale()
             return deepcopy(self._config)
 
     def update(self, **kwargs: object) -> AppConfig:
         with self._lock:
+            self._reload_if_stale()
             current = self._config.to_dict()
             for key, value in kwargs.items():
                 if key not in current:

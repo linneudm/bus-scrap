@@ -154,7 +154,19 @@ Rebuilds seguintes reaproveitam cache de `pip`, `apt` e da camada do Chromium; s
 
 O entrypoint ajusta automaticamente as permissões de `./data` (volume montado) e em seguida roda a aplicação como usuário não-root (`appsvc`).
 
-3. Para digitar comandos no container:
+3. Comandos sem attach (`docker exec`):
+
+```bash
+docker exec bus-scrap bus-ctl show
+docker exec bus-scrap bus-ctl status
+docker exec bus-scrap bus-ctl set destino Natal
+docker exec bus-scrap bus-ctl run
+docker exec bus-scrap bus-ctl help
+```
+
+Ou equivalente: `docker exec bus-scrap python -m bus_scrap.ctl show`.
+
+4. Para digitar comandos no attach interativo:
 
 ```bash
 docker attach bus-scrap

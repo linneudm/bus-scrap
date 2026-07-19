@@ -1,0 +1,3 @@
+#!/bin/sh
+# Wrapper para docker exec: docker exec bus-scrap bus-ctl show
+exec python -m bus_scrap.ctl "$@"

@@ -62,12 +62,13 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 # Código da app por último → mudanças de código não refazem pip/browser
 COPY bus_scrap ./bus_scrap
 COPY main.py .
+COPY bus-ctl /usr/local/bin/bus-ctl
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN mkdir -p /app/data \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin appsvc \
     && chown -R appsvc:appsvc /app /ms-playwright \
-    && chmod +x /docker-entrypoint.sh \
+    && chmod +x /docker-entrypoint.sh /usr/local/bin/bus-ctl \
     && find /app -type d -name '__pycache__' -prune -exec rm -rf {} + \
     && find /app -type f -name '*.pyc' -delete
 

@@ -9,7 +9,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from bus_scrap.scheduler.commands import CommandHandler, HELP_TEXT
-from bus_scrap.scheduler.config import ConfigStore
+from bus_scrap.scheduler.config import ConfigStore, default_stop_path
 from bus_scrap.scheduler.emailer import EmailSender
 from bus_scrap.scheduler.job import DailySearchJob
 from bus_scrap.scheduler.logger import RuntimeLogger
@@ -23,6 +23,19 @@ class SchedulerService:
         self.commands = CommandHandler(store, self.job, logger)
         self._last_run_key: str | None = None
         self._stop = threading.Event()
+
+    def _consume_stop_request(self) -> bool:
+        stop_path = default_stop_path()
+        if not stop_path.exists():
+            return False
+        try:
+            stop_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        self.logger.info("Pedido de encerramento recebido (bus-ctl quit).")
+        self.commands.should_stop = True
+        self._stop.set()
+        return True
 
     def _tz(self):
         cfg = self.store.get()
@@ -75,6 +88,11 @@ class SchedulerService:
                 break
 
     def run_forever(self, run_now: bool = False) -> int:
+        # Limpa pedido de stop residual de execução anterior
+        stop_path = default_stop_path()
+        if stop_path.exists():
+            stop_path.unlink(missing_ok=True)
+
         cfg = self.store.get()
         self.logger.section("Bus Scrap Scheduler iniciado")
         self.logger.info(
@@ -85,6 +103,7 @@ class SchedulerService:
             f"Rota padrão: {cfg.origem} -> {cfg.destino} | ida {cfg.data} | "
             f"email {cfg.email}"
         )
+        self.logger.info("Comandos também via: docker exec bus-scrap bus-ctl <cmd>")
         self.logger.help_text(HELP_TEXT)
 
         if run_now:
@@ -95,6 +114,8 @@ class SchedulerService:
 
         try:
             while not self._stop.is_set() and not self.commands.should_stop:
+                if self._consume_stop_request():
+                    break
                 self._maybe_run_cron()
                 time.sleep(1)
         except KeyboardInterrupt:
